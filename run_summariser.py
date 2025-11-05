@@ -8,6 +8,12 @@ import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+import os
+
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
+
 today = datetime.date.today().strftime("%Y-%m-%d")
 
 # Load email details from file
@@ -182,10 +188,6 @@ with smtplib.SMTP_SSL('smtp.virginmedia.com', 465) as server:
     server.sendmail(
         sender_email, receiver_email, message.as_string()
     )
-
-stop
-
-
 
 # Add new IDs to top of previous_ids file keeping up to 1000 entries
 with open("previous_ids.dno", 'w') as f:
