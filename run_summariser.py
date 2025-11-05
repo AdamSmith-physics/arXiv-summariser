@@ -2,6 +2,27 @@ import json
 import arxiv
 from ollama import chat
 from ollama import ChatResponse
+import smtplib
+import datetime
+
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+today = datetime.date.today().strftime("%Y-%m-%d")
+
+# Load email details from file
+with open("email_details.dno", "r") as f:
+    lines = f.readlines()
+    sender_email = lines[0].strip()
+    password = lines[1].strip()
+
+receiver_email = "adam.gammon-smith@nottingham.ac.uk"
+
+message = MIMEMultipart("alternative")
+message["Subject"] = f"arXiv Summary for {today}"
+message["From"] = sender_email
+message["To"] = receiver_email
+
 
 with open("settings.json", 'r') as f:
     settings = json.load(f)
@@ -113,11 +134,54 @@ for rank in range(min(3, len(ranked_indices))):
     print(f"Rank {rank + 1}: {paper.title} (ArXiv ID: {paper.get_short_id()})")
 
 
+html = f"""\
+<html>
+    <body>
+        <h2>Top Relevant arXiv Papers for {today}</h2>
+        
+"""
+
+for rank in range(min(3, len(ranked_indices))):
+    paper_index = ranked_indices[rank]
+    paper = relevant_results[paper_index]
+    html += f"""\
+        <h3>Rank {rank + 1}: {paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</h3>
+        <p><strong>Authors:</strong> {', '.join([author.name for author in paper.authors])}</p>
+        <p><strong>Summary:</strong> {paper.summary}</p>
+        <hr>
+    """
+
+html += f"""\
+        <br>
+        <br>
+        <h2>Other Relevant arXiv Papers</h2>
+        
+"""
+
+# provide the titles, arxiv IDs, and authors for the remaining relevant papers
+for rank in range(3, len(ranked_indices)):
+    paper_index = ranked_indices[rank]
+    paper = relevant_results[paper_index]
+    html += f"""\
+        <h3>{paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</h3>
+        <p><strong>Authors:</strong> {', '.join([author.name for author in paper.authors])}</p>
+        <hr>
+    """
 
 
+html += f"""\
+    </body>
+</html>
+"""
 
+content = MIMEText(html, "html")
+message.attach(content)
 
-
+with smtplib.SMTP_SSL('smtp.virginmedia.com', 465) as server:
+    server.login(sender_email, password)
+    server.sendmail(
+        sender_email, receiver_email, message.as_string()
+    )
 
 stop
 
