@@ -44,7 +44,7 @@ try:
         print(f"Arxiv ID: {result.get_short_id()}")
         # print("-" * 40)
 
-        prompt = f"""Tell me if the following arXiv paper abstract is relevant to my research interests or to any of the authors I follow. Please answer with a simple 'Yes' or 'No'.
+        prompt = f"""Tell me if the following arXiv paper abstract is relevant to my research interests or to any of the authors I follow. Please answer with a simple 'Yes' or 'No'. Do not provide any additional explanation.
         Research Interests: {', '.join(topics)}
         Authors I follow: {', '.join(authors)}
 
@@ -61,7 +61,7 @@ try:
             },
         ],
         options={
-                'num_ctx': 2*10,  # Sets the context window to 32768 tokens
+                'num_ctx': 2**10,  # Sets the context window to 1024 tokens
         })
         # ,think="low")
 
@@ -77,9 +77,49 @@ try:
 except Exception as e:
     print(f"An unexpected error occurred: {e}")
 
+print(f"Found {len(relevant_results)} relevant papers out of {len(result_list)} new papers.")
 
-for relevant_result in relevant_results:
-    
+combined_meassages = ""
+# loop over enumerate relevant_results
+for idx, result in enumerate(relevant_results):
+
+    combined_meassages += f"{idx}: Title: {result.title}\n"
+    combined_meassages += f"   Authors: {[author.name for author in result.authors]}\n"
+    combined_meassages += f"   Arxiv ID: {result.get_short_id()}\n"
+    combined_meassages += f"   Summary: {result.summary}\n"
+    combined_meassages += "-" * 40 + "\n\n"
+
+prompt = f"""Please rank the following arXiv papers in order of relevance to my research interests and the authors I follow. My research interests are: {', '.join(topics)}. The authors I follow are: {', '.join(authors)}. Provide the ranking as an ordered list of the indices corresponding to the paper, starting with the most relevant. Your response should be a simple comma-separated list of indices without any additional text. That is your answer should be something like "0, 3, 2, 1, 4" with no additional text!
+\n\n{combined_meassages}"""
+
+response: ChatResponse = chat(model='gemma3:27b',
+messages=[
+    {
+    'role': 'user',
+    'content': prompt,
+    },
+],
+options={
+        'num_ctx': 2**14,  # Sets the context window
+})
+
+ranked_indices_str = response.message.content.strip()
+ranked_indices = [int(idx.strip()) for idx in ranked_indices_str.split(",")]    
+
+# Print the titles of the top 3 ranked papers
+for rank in range(min(3, len(ranked_indices))):
+    paper_index = ranked_indices[rank]
+    paper = relevant_results[paper_index]
+    print(f"Rank {rank + 1}: {paper.title} (ArXiv ID: {paper.get_short_id()})")
+
+
+
+
+
+
+
+
+stop
 
 
 
