@@ -1,0 +1,5 @@
+{
+    "Categories": ["quant-ph", "cond-mat.*"],
+    "Authors": ["Daniel Malz", "Frank Pollmann", "Michael Knap"],
+    "Topics": ["topological order", "quantum simulation", "quantum computing", "quantum simualtion with quantum computers", "quantum many-body dynamics"]
+}
