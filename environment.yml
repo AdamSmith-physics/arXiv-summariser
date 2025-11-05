@@ -8,6 +8,6 @@ dependencies:
   - pip
   - pip:
     - ollama
-    - marker-ocr[full]
+    - "marker-pdf[full]"
     - arxiv
     - pytz
