@@ -1,6 +1,6 @@
 from source.email_functions import EmailClient
 from source.arxiv_functions import arxiv_search
-from source.ollama_functions import test_ollama
+from source.ollama_functions import rank_papers_individual, rank_papers_combined
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -42,112 +42,14 @@ with open("previous_ids.dno", 'r') as f:
 
 arxiv_results = arxiv_search(categories, previous_ids, max_results=10, max_attempts=3)
 
-if not arxiv_results:
-    print("No new arXiv papers found.")
-    # end the script here (or send an email saying no new papers found)
-    exit()
-else:
-    print(f"Found {len(arxiv_results)} new arXiv papers.")
-    # Further processing and summarisation would go here   
+# Rank papers using Ollama
+relevant_results, paper_scores = rank_papers_individual(arxiv_results, settings)
 
-
-result_list = []
-relevant_results = []
-
-for result in arxiv_results:
-
-    arxiv_id = result.get_short_id()
-
-    if arxiv_id not in previous_ids:
-        result_list.append(result)
-    else:
-        print(f"Skipping previously processed paper: {arxiv_id}")
-        print("-" * 40)
-        continue
-
-    print(f"Title: {result.title}")
-    print(f"Authors: {[author.name for author in result.authors]}")
-    print(f"Arxiv ID: {result.get_short_id()}")
-    # print("-" * 40)
-
-    prompt = f"""
-    Paper Title: {result.title}
-    Paper Authors: {', '.join([author.name for author in result.authors])}
-    Paper Abstract: {result.summary}
-
-
-    Tell me if the above arXiv paper abstract is relevant to my research interests or to any of the authors I follow. 
-    Research Interests: {', '.join(topics)}
-    Authors I follow: {', '.join(authors)}
-    """
-
-    # prompt += """
-    
-    # Please answer with a simple 'Yes' or 'No'. Do not provide any additional explanation.
-    # """
-
-    # Change to using scores to give an initial ranking.
-    prompt += """
-    Please score the paper out of 100 for relevance. I will consider any score below 50 as not relevant. Please answer with just the score, no additional text."""  
-
-    response: ChatResponse = chat(
-        model='gemma3:27b', 
-        messages=[
-            {
-            'role': 'system',
-            'content': system_instructions,
-            },
-            {
-            'role': 'user',
-            'content': prompt,
-            },
-        ],
-        options={
-                'num_ctx': 2**10,  # Sets the context window to 1024 tokens
-        })
-    # ,think="low")
-
-    stripped_response = response.message.content.strip().strip(".").lower()
-
-    print(f"Relevance for {result.get_short_id()}: \n{stripped_response}\n")
-    print("=" * 80)
-
-    if 'yes' in stripped_response:
-        relevant_results.append(result)
-
-print(f"Found {len(relevant_results)} relevant papers out of {len(result_list)} new papers.") 
-
-
-combined_meassages = ""
-# loop over enumerate relevant_results
-for idx, result in enumerate(relevant_results):
-
-    combined_meassages += f"{idx}: Title: {result.title}\n"
-    combined_meassages += f"   Authors: {[author.name for author in result.authors]}\n"
-    combined_meassages += f"   Arxiv ID: {result.get_short_id()}\n"
-    combined_meassages += f"   Summary: {result.summary}\n"
-    combined_meassages += "-" * 40 + "\n\n"
-
-prompt = f"""{combined_meassages}\n\nPlease rank the above arXiv papers in order of relevance to my research interests and the authors I follow. My research interests are: {', '.join(topics)}. The authors I follow are: {', '.join(authors)}. Provide the ranking as an ordered list of the indices corresponding to the paper, starting with the most relevant. Your response should be a simple comma-separated list of indices without any additional text. That is your answer should be something like "0, 3, 2, 1, 4" with no additional text!"""
-
-response: ChatResponse = chat(model='gemma3:27b',
-messages=[
-    {
-    'role': 'user',
-    'content': prompt,
-    },
-],
-options={
-        'num_ctx': 2**15,  # Sets the context window
-})
-
-ranked_indices_str = response.message.content.strip()
-ranked_indices = [int(idx.strip()) for idx in ranked_indices_str.split(",")]    
+ordered_relevant_results = rank_papers_combined(relevant_results, settings) 
 
 # Print the titles of the top 3 ranked papers
-for rank in range(min(3, len(ranked_indices))):
-    paper_index = ranked_indices[rank]
-    paper = relevant_results[paper_index]
+for rank in range(3):
+    paper = ordered_relevant_results[rank]
     print(f"Rank {rank + 1}: {paper.title} (ArXiv ID: {paper.get_short_id()})")
 
 
@@ -158,9 +60,8 @@ html = f"""\
         
 """
 
-for rank in range(min(3, len(ranked_indices))):
-    paper_index = ranked_indices[rank]
-    paper = relevant_results[paper_index]
+for rank in range(3):
+    paper = ordered_relevant_results[rank]
     html += f"""\
         <h3>{paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</h3>
         <p><strong>Authors:</strong> {', '.join([author.name for author in paper.authors])}</p>
@@ -174,6 +75,9 @@ html += f"""\
         <h2>Other Relevant arXiv Papers</h2>
         
 """
+
+### Needs correcting!!! ###
+
 
 # provide the titles, arxiv IDs, and authors for the remaining relevant papers
 for rank in range(3, len(ranked_indices)):
@@ -194,7 +98,7 @@ html += f"""\
 content = MIMEText(html, "html")
 message.attach(content)
 
-email_client.send_email(receiver_email, message)
+# email_client.send_email(receiver_email, message)
 
 # # Add new IDs to top of previous_ids file keeping up to 1000 entries
 # with open("previous_ids.dno", 'w') as f:
