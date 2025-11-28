@@ -1,16 +1,13 @@
-from source.email_functions import EmailClient
-from source.arxiv_functions import arxiv_search
-from source.ollama_functions import test_ollama
+import json
+import arxiv
+from ollama import chat
+from ollama import ChatResponse
+import smtplib
+import datetime
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-import json
-
-from ollama import chat
-from ollama import ChatResponse
-
-import datetime
 import os
 
 abspath = os.path.abspath(__file__)
@@ -19,15 +16,19 @@ os.chdir(dname)
 
 today = datetime.date.today().strftime("%Y-%m-%d")
 
-email_client = EmailClient()
+# Load email details from file
+with open("email_details.dno", "r") as f:
+    lines = f.readlines()
+    sender_email = lines[0].strip()
+    password = lines[1].strip()
 
 receiver_email = "adam.gammon-smith@nottingham.ac.uk"
 
-
 message = MIMEMultipart("alternative")
 message["Subject"] = f"arXiv Summary for {today}"
-message["From"] = email_client.email_address
+message["From"] = sender_email
 message["To"] = receiver_email
+
 
 with open("settings.json", 'r') as f:
     settings = json.load(f)
@@ -40,63 +41,56 @@ topics = settings['Topics']
 with open("previous_ids.dno", 'r') as f:
     previous_ids = f.read().splitlines()
 
-arxiv_results = arxiv_search(categories, previous_ids, max_results=10, max_attempts=3)
-
-if not arxiv_results:
-    print("No new arXiv papers found.")
-    # end the script here (or send an email saying no new papers found)
-    exit()
-else:
-    print(f"Found {len(arxiv_results)} new arXiv papers.")
-    # Further processing and summarisation would go here   
-
+client = arxiv.Client()
+search = arxiv.Search(
+  query = " AND ".join(categories),
+  max_results = 100, # Get a larger batch to be safe
+  sort_by = arxiv.SortCriterion.LastUpdatedDate, # Use SubmittedDate
+  sort_order = arxiv.SortOrder.Descending
+)
 
 result_list = []
 relevant_results = []
 
-for result in arxiv_results:
+try:
+    for result in client.results(search):
 
-    arxiv_id = result.get_short_id()
+        arxiv_id = result.get_short_id()
 
-    if arxiv_id not in previous_ids:
-        result_list.append(result)
-    else:
-        print(f"Skipping previously processed paper: {arxiv_id}")
-        print("-" * 40)
-        continue
+        if arxiv_id not in previous_ids:
+            result_list.append(result)
+        else:
+            print(f"Skipping previously processed paper: {arxiv_id}")
+            print("-" * 40)
+            continue
 
-    print(f"Title: {result.title}")
-    print(f"Authors: {[author.name for author in result.authors]}")
-    print(f"Arxiv ID: {result.get_short_id()}")
-    # print("-" * 40)
+        print(f"Title: {result.title}")
+        print(f"Authors: {[author.name for author in result.authors]}")
+        print(f"Arxiv ID: {result.get_short_id()}")
+        # print("-" * 40)
 
-    prompt = f"""
-    Paper Title: {result.title}
-    Paper Authors: {', '.join([author.name for author in result.authors])}
-    Paper Abstract: {result.summary}
+        prompt = f"""
+        Paper Title: {result.title}
+        Paper Authors: {', '.join([author.name for author in result.authors])}
+        Paper Abstract: {result.summary}
 
 
-    Tell me if the above arXiv paper abstract is relevant to my research interests or to any of the authors I follow. 
-    Research Interests: {', '.join(topics)}
-    Authors I follow: {', '.join(authors)}
-    """
+        Tell me if the above arXiv paper abstract is relevant to my research interests or to any of the authors I follow. 
+        Research Interests: {', '.join(topics)}
+        Authors I follow: {', '.join(authors)}
+        """
 
-    # prompt += """
-    
-    # Please answer with a simple 'Yes' or 'No'. Do not provide any additional explanation.
-    # """
+        prompt += """
+        
+        Please answer with a simple 'Yes' or 'No'. Do not provide any additional explanation.
+        """
 
-    # Change to using scores to give an initial ranking.
-    prompt += """
-    Please score the paper out of 100 for relevance. I will consider any score below 50 as not relevant. Please answer with just the score, no additional text."""  
+        # Change to using scores to give an initial ranking.
+        # prompt += """
+        # Please score the paper out of 100 for relevance. If the paper is not relevant, give it a score of 0. Please answer with just the score, no additional text."""  
 
-    response: ChatResponse = chat(
-        model='gemma3:27b', 
+        response: ChatResponse = chat(model='gemma3:27b', 
         messages=[
-            {
-            'role': 'system',
-            'content': system_instructions,
-            },
             {
             'role': 'user',
             'content': prompt,
@@ -105,18 +99,21 @@ for result in arxiv_results:
         options={
                 'num_ctx': 2**10,  # Sets the context window to 1024 tokens
         })
-    # ,think="low")
+        # ,think="low")
 
-    stripped_response = response.message.content.strip().strip(".").lower()
+        stripped_response = response.message.content.strip().strip(".").lower()
 
-    print(f"Relevance for {result.get_short_id()}: \n{stripped_response}\n")
-    print("=" * 80)
+        print(f"Relevance for {result.get_short_id()}: \n{stripped_response}\n")
+        print("=" * 80)
 
-    if 'yes' in stripped_response:
-        relevant_results.append(result)
+        if 'yes' in stripped_response:
+            relevant_results.append(result)
 
-print(f"Found {len(relevant_results)} relevant papers out of {len(result_list)} new papers.") 
 
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+
+print(f"Found {len(relevant_results)} relevant papers out of {len(result_list)} new papers.")
 
 combined_meassages = ""
 # loop over enumerate relevant_results
@@ -194,11 +191,15 @@ html += f"""\
 content = MIMEText(html, "html")
 message.attach(content)
 
-email_client.send_email(receiver_email, message)
+with smtplib.SMTP_SSL('smtp.virginmedia.com', 465) as server:
+    server.login(sender_email, password)
+    server.sendmail(
+        sender_email, receiver_email, message.as_string()
+    )
 
-# # Add new IDs to top of previous_ids file keeping up to 1000 entries
-# with open("previous_ids.dno", 'w') as f:
-#     new_ids = [result.get_short_id() for result in result_list]
-#     all_ids = new_ids + previous_ids
-#     all_ids = all_ids[:1000]  # Keep only the latest 1000 IDs
-#     f.write("\n".join(all_ids))
+# Add new IDs to top of previous_ids file keeping up to 1000 entries
+with open("previous_ids.dno", 'w') as f:
+    new_ids = [result.get_short_id() for result in result_list]
+    all_ids = new_ids + previous_ids
+    all_ids = all_ids[:1000]  # Keep only the latest 1000 IDs
+    f.write("\n".join(all_ids))
