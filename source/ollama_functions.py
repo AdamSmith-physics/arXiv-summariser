@@ -20,8 +20,6 @@ def rank_papers_individual(arxiv_results, settings):
 
     for result in arxiv_results:
 
-        arxiv_id = result.get_short_id()
-
         print(f"Title: {result.title}")
         print(f"Authors: {[author.name for author in result.authors]}")
         print(f"Arxiv ID: {result.get_short_id()}")
@@ -89,7 +87,7 @@ def rank_papers_individual(arxiv_results, settings):
     for i, result in enumerate(relevant_results):
         print(f"{paper_scores[i]} : {result.title}")
 
-    print(f"Found {len(relevant_results)} relevant papers out of {len(result_list)} new papers.") 
+    print(f"Found {len(relevant_results)} relevant papers out of {len(arxiv_results)} new papers.") 
 
     return relevant_results, paper_scores
 

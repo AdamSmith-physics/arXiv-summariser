@@ -17,17 +17,9 @@ abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
 
-today = datetime.date.today().strftime("%Y-%m-%d")
-
 email_client = EmailClient()
 
 receiver_email = "adam.gammon-smith@nottingham.ac.uk"
-
-
-message = MIMEMultipart("alternative")
-message["Subject"] = f"arXiv Summary for {today}"
-message["From"] = email_client.email_address
-message["To"] = receiver_email
 
 with open("settings.json", 'r') as f:
     settings = json.load(f)
@@ -53,52 +45,11 @@ for rank in range(3):
     print(f"Rank {rank + 1}: {paper.title} (ArXiv ID: {paper.get_short_id()})")
 
 
-html = f"""\
-<html>
-    <body>
-        <h2>Top Relevant arXiv Papers for {today}</h2>
-        
-"""
+# Write the email content
+message = email_client.write_email_content(ordered_relevant_results, receiver_email)
 
-for rank in range(3):
-    paper = ordered_relevant_results[rank]
-    html += f"""\
-        <h3>{paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</h3>
-        <p><strong>Authors:</strong> {', '.join([author.name for author in paper.authors])}</p>
-        <p><strong>Summary:</strong> {paper.summary}</p>
-        <hr>
-    """
-
-html += f"""\
-        <br>
-        <br>
-        <h2>Other Relevant arXiv Papers</h2>
-        
-"""
-
-### Needs correcting!!! ###
-
-
-# provide the titles, arxiv IDs, and authors for the remaining relevant papers
-for rank in range(3, len(ranked_indices)):
-    paper_index = ranked_indices[rank]
-    paper = relevant_results[paper_index]
-    html += f"""\
-        <h3>{paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</h3>
-        <p><strong>Authors:</strong> {', '.join([author.name for author in paper.authors])}</p>
-        <hr>
-    """
-
-
-html += f"""\
-    </body>
-</html>
-"""
-
-content = MIMEText(html, "html")
-message.attach(content)
-
-# email_client.send_email(receiver_email, message)
+# Send the email
+email_client.send_email(receiver_email, message)
 
 # # Add new IDs to top of previous_ids file keeping up to 1000 entries
 # with open("previous_ids.dno", 'w') as f:
