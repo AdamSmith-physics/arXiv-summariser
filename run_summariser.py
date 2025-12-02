@@ -32,7 +32,7 @@ topics = settings['Topics']
 with open("previous_ids.dno", 'r') as f:
     previous_ids = f.read().splitlines()
 
-arxiv_results = arxiv_search(categories, previous_ids, max_results=10, max_attempts=3)
+arxiv_results = arxiv_search(categories, previous_ids, max_results=100, max_attempts=3)
 
 # Rank papers using Ollama
 relevant_results, paper_scores = rank_papers_individual(arxiv_results, settings)

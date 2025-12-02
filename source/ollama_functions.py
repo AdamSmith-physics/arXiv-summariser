@@ -1,6 +1,8 @@
 from ollama import chat
 from ollama import ChatResponse
 
+from .constants import PROMPT_INDIVIDUAL, SYSTEM_PROMPT_INDIVIDUAL
+
 def rank_papers_individual(arxiv_results, settings):
 
     categories = settings['Categories']
@@ -10,13 +12,7 @@ def rank_papers_individual(arxiv_results, settings):
     result_list = []
     relevant_results = []
     paper_scores = []
-    system_instructions = """
-    You are an expert research assistant specialised in academic literature review.
-    Your task is to evaluate the relevance of academic papers based on their titles, authors, and abstracts.
-    When I provide you with the details you should respond with a relevance score out of 100, where a higher score indicates greater relevance to my research interests and the authors I follow. 
-    I will consider any score below 50 as not relevant. 
-    Please answer with just the score, no additional text.
-    """
+    system_instructions = SYSTEM_PROMPT_INDIVIDUAL
 
     for result in arxiv_results:
 
@@ -30,10 +26,13 @@ def rank_papers_individual(arxiv_results, settings):
         Paper Authors: {', '.join([author.name for author in result.authors])}
         Paper Abstract: {result.summary}
 
-
-        Tell me if the above arXiv paper abstract is relevant to my research interests or to any of the authors I follow. 
-        Research Interests: {', '.join(topics)}
+        ---------
+        
+        My research Interests: {', '.join(topics)}
         Authors I follow: {', '.join(authors)}
+
+        ----------
+
         """
 
         # prompt += """
@@ -42,8 +41,7 @@ def rank_papers_individual(arxiv_results, settings):
         # """
 
         # Change to using scores to give an initial ranking.
-        prompt += """
-        Please score the paper out of 100 for relevance. I will consider any score below 50 as not relevant. Please answer with just the score, no additional text."""  
+        prompt += PROMPT_INDIVIDUAL
 
         response: ChatResponse = chat(
             model='gemma3:27b', 
