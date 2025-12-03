@@ -5,12 +5,10 @@ from .constants import PROMPT_INDIVIDUAL, SYSTEM_PROMPT_INDIVIDUAL, PROMPT_COMBI
 
 def rank_papers_individual(arxiv_results, settings):
 
-    categories = settings['Categories']
     authors = settings['Authors']
     topics = settings['Topics']
     model = settings['Model']
 
-    result_list = []
     relevant_results = []
     paper_scores = []
     system_instructions = SYSTEM_PROMPT_INDIVIDUAL
@@ -20,7 +18,6 @@ def rank_papers_individual(arxiv_results, settings):
         print(f"Title: {result.title}")
         print(f"Authors: {[author.name for author in result.authors]}")
         print(f"Arxiv ID: {result.get_short_id()}")
-        # print("-" * 40)
 
         prompt = f"""
         Paper Title: {result.title}
@@ -85,7 +82,7 @@ def rank_papers_individual(arxiv_results, settings):
     return relevant_results, paper_scores
 
 
-def rank_papers_combined(relevant_results, settings):
+def rank_papers_combined(relevant_results, settings, max_attempts=3):
 
     authors = settings['Authors']
     topics = settings['Topics']
@@ -117,27 +114,37 @@ def rank_papers_combined(relevant_results, settings):
 
     prompt += PROMPT_COMBINED
 
-    response: ChatResponse = chat(model=model,
-    messages=[
-        {
-        'role': 'system',
-        'content': system_instructions,
-        },
-        {
-        'role': 'user',
-        'content': prompt,
-        },
-    ],
-    options={
-            'num_ctx': 2**15,  # Sets the context window
-    })
+    for attempt in range(max_attempts):
+        try:
+            response: ChatResponse = chat(model=model,
+            messages=[
+                {
+                'role': 'system',
+                'content': system_instructions,
+                },
+                {
+                'role': 'user',
+                'content': prompt,
+                },
+            ],
+            options={
+                    'num_ctx': 2**15,  # Sets the context window
+            })
 
-    ranked_indices_str = response.message.content.strip()
-    ranked_indices = [int(idx.strip()) for idx in ranked_indices_str.split(",")]
+            ranked_indices_str = response.message.content.strip()
+            ranked_indices = [int(idx.strip()) for idx in ranked_indices_str.split(",")]
 
-    # check that we have all indices
-    if set(ranked_indices) != set(range(len(relevant_results))):
-        raise Exception(f"Ranked indices do not match expected indices. Got: {ranked_indices}")
+            # check that we have all indices
+            if set(ranked_indices) != set(range(len(relevant_results))):
+                raise Exception(f"Ranked indices do not match expected indices. Got: {ranked_indices}")
+            
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed with error: {e}")
+            if attempt < max_attempts - 1:
+                print("Retrying...")
+            else:
+                print("Max attempts reached. Could not get top 10 ordering. Defaulting to individual rankings.")
+                return relevant_results 
 
     # Reorder relevant_results based on ranked_indices
     ordered_relevant_results = [relevant_results[i] for i in ranked_indices]

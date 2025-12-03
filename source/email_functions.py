@@ -68,9 +68,10 @@ class EmailClient:
 
         for paper in relevant_results[3:]:
             html += f"""\
-                <h3>{paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</h3>
-                <p><strong>Authors:</strong> {', '.join([author.name for author in paper.authors])}</p>
-                <hr>
+                <p>
+                <strong>{paper.title} (ArXiv ID: <a href="{paper.entry_id}">{paper.get_short_id()}</a>)</strong><br>
+                {', '.join([author.name for author in paper.authors])}
+                </p>
             """
 
         html += f"""\
