@@ -1,6 +1,7 @@
 # Custom file extension
 *.dno
 logs/
+previous_ids/
 
 email_details.json
 settings/user_settings/*.json
