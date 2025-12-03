@@ -69,8 +69,8 @@ for filename in os.listdir(user_settings_path):
     email_client.send_email(receiver_email, message)
 
     # Add new IDs to top of previous_ids file keeping up to 1000 entries
-    # with open("previous_ids.dno", 'w') as f:
-    #     new_ids = [result.get_short_id() for result in arxiv_results]
-    #     all_ids = new_ids + previous_ids
-    #     all_ids = all_ids[:1000]  # Keep only the latest 1000 IDs
-    #     f.write("\n".join(all_ids))
+    with open("previous_ids.dno", 'w') as f:
+        new_ids = [result.get_short_id() for result in arxiv_results]
+        all_ids = new_ids + previous_ids
+        all_ids = all_ids[:1000]  # Keep only the latest 1000 IDs
+        f.write("\n".join(all_ids))
