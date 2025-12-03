@@ -1,5 +1,6 @@
 {
     "Categories": ["quant-ph", "cond-mat.*"],
     "Authors": ["Daniel Malz", "Frank Pollmann", "Michael Knap", "John Preskill", "Alexei Kitaev", "Pedram Roushan"],
-    "Topics": ["topological order", "quantum simulation", "quantum computing", "quantum simualtion with quantum computers", "quantum many-body dynamics"]
+    "Topics": ["topological order", "quantum simulation", "quantum computing", "quantum simualtion with quantum computers", "quantum many-body dynamics"],
+    "Model": "gpt-oss:20b"
 }

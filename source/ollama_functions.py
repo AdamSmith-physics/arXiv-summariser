@@ -1,13 +1,14 @@
 from ollama import chat
 from ollama import ChatResponse
 
-from .constants import PROMPT_INDIVIDUAL, SYSTEM_PROMPT_INDIVIDUAL
+from .constants import PROMPT_INDIVIDUAL, SYSTEM_PROMPT_INDIVIDUAL, PROMPT_COMBINED, SYSTEM_PROMPT_COMBINED
 
 def rank_papers_individual(arxiv_results, settings):
 
     categories = settings['Categories']
     authors = settings['Authors']
     topics = settings['Topics']
+    model = settings['Model']
 
     result_list = []
     relevant_results = []
@@ -35,16 +36,10 @@ def rank_papers_individual(arxiv_results, settings):
 
         """
 
-        # prompt += """
-        
-        # Please answer with a simple 'Yes' or 'No'. Do not provide any additional explanation.
-        # """
-
-        # Change to using scores to give an initial ranking.
         prompt += PROMPT_INDIVIDUAL
 
         response: ChatResponse = chat(
-            model='gemma3:27b', 
+            model=model, 
             messages=[
                 {
                 'role': 'system',
@@ -94,15 +89,9 @@ def rank_papers_combined(relevant_results, settings):
 
     authors = settings['Authors']
     topics = settings['Topics']
+    model = settings['Model']
 
-    system_instructions = """
-    You are an expert research assistant specialised in academic literature review.
-    Your task is to evaluate the relevance of academic papers based on their titles, authors, and abstracts.
-    When I provide you with the details you should respond with an ordering based on the relevance to my research interests and the authors I follow. 
-    Provide the ranking as an ordered list of the indices corresponding to the paper, starting with the most relevant. 
-    Your response should be a simple comma-separated list of indices without any additional text. 
-    That is your answer should be something like "0, 3, 2, 1, 4" with no additional text!
-    """
+    system_instructions = SYSTEM_PROMPT_COMBINED
 
 
     combined_meassages = ""
@@ -115,9 +104,20 @@ def rank_papers_combined(relevant_results, settings):
         combined_meassages += f"   Summary: {result.summary}\n"
         combined_meassages += "-" * 40 + "\n\n"
 
-    prompt = f"""{combined_meassages}\n\nPlease rank the above arXiv papers in order of relevance to my research interests and the authors I follow. My research interests are: {', '.join(topics)}. The authors I follow are: {', '.join(authors)}. Provide the ranking as an ordered list of the indices corresponding to the paper, starting with the most relevant. Your response should be a simple comma-separated list of indices without any additional text. That is your answer should be something like "0, 3, 2, 1, 4" with no additional text!"""
+    prompt = f"""{combined_meassages}
+    
+    ---------
+    
+    My research Interests: {', '.join(topics)}
+    Authors I follow: {', '.join(authors)}
 
-    response: ChatResponse = chat(model='gemma3:27b',
+    ----------
+
+    """
+
+    prompt += PROMPT_COMBINED
+
+    response: ChatResponse = chat(model=model,
     messages=[
         {
         'role': 'system',
@@ -134,6 +134,10 @@ def rank_papers_combined(relevant_results, settings):
 
     ranked_indices_str = response.message.content.strip()
     ranked_indices = [int(idx.strip()) for idx in ranked_indices_str.split(",")]
+
+    # check that we have all indices
+    if set(ranked_indices) != set(range(len(relevant_results))):
+        raise Exception(f"Ranked indices do not match expected indices. Got: {ranked_indices}")
 
     # Reorder relevant_results based on ranked_indices
     ordered_relevant_results = [relevant_results[i] for i in ranked_indices]
