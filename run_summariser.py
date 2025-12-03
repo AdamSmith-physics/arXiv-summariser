@@ -12,6 +12,10 @@ os.chdir(dname)
 
 user_settings_path = "settings/user_settings"  # where the user settings json files are stored
 
+# check if previous_ids/ directory exists, if not create it
+if not os.path.exists("previous_ids"):
+    os.makedirs("previous_ids")
+
 email_client = EmailClient()  # Initialize email client
 
 for filename in os.listdir(user_settings_path):
@@ -31,10 +35,11 @@ for filename in os.listdir(user_settings_path):
     print("=" * 80 + "\n")
 
     # load previous IDs from text file. They are stored as a list
-    if not os.path.exists("previous_ids.dno"):
+    previous_ids_file = "previous_ids/" + filename.removesuffix(".json") + "_previous_ids.dno"
+    if not os.path.exists(previous_ids_file):
         previous_ids = []
     else:
-        with open("previous_ids.dno", 'r') as f:
+        with open(previous_ids_file, 'r') as f:
             previous_ids = f.read().splitlines()
 
 
@@ -69,7 +74,7 @@ for filename in os.listdir(user_settings_path):
     email_client.send_email(receiver_email, message)
 
     # Add new IDs to top of previous_ids file keeping up to 1000 entries
-    with open("previous_ids.dno", 'w') as f:
+    with open(previous_ids_file, 'w') as f:
         new_ids = [result.get_short_id() for result in arxiv_results]
         all_ids = new_ids + previous_ids
         all_ids = all_ids[:1000]  # Keep only the latest 1000 IDs
