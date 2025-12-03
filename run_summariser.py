@@ -41,7 +41,7 @@ for filename in os.listdir(user_settings_path):
     #####################################
     ## Main Code
 
-    arxiv_results = arxiv_search(categories, previous_ids, max_results=20, max_attempts=3)
+    arxiv_results = arxiv_search(categories, previous_ids, max_results=100, max_attempts=3)
 
     # Rank papers using Ollama
     relevant_results, paper_scores = rank_papers_individual(arxiv_results, settings)
