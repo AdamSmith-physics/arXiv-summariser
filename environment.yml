@@ -8,6 +8,4 @@ dependencies:
   - pip
   - pip:
     - ollama
-    - "marker-pdf[full]"
     - arxiv
-    - pytz
