@@ -68,7 +68,7 @@ for filename in os.listdir(user_settings_path):
         print(f"Rank {rank + 1}: {paper.title} (ArXiv ID: {paper.get_short_id()})")
 
     # Write the email content
-    message = email_client.write_email_content(ordered_relevant_results, receiver_email)
+    message = email_client.write_email_content(relevant_results, receiver_email)
 
     # Send the email
     email_client.send_email(receiver_email, message)
